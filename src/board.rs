@@ -48,7 +48,11 @@ impl Index<Coord> for Matrix {
     ///
     /// 座標が盤面の範囲外であった場合は None が返る。
     fn index(&self, index: Coord) -> &Self::Output {
-        unimplemented!();
+        if self.is_in_range(index) {
+            &self.0[index.1 as usize][index.0 as usize]
+        }else {
+            &None
+        }
     }
 }
 /// `[]=` 演算子のオーバーロード
@@ -57,7 +61,11 @@ impl IndexMut<Coord> for Matrix {
     ///
     /// 座標が盤面の範囲外であった場合の挙動は未定義
     fn index_mut(&mut self, index: Coord) -> &mut Self::Output {
-        unimplemented!();
+        if self.is_in_range(index) {
+            &mut self.0[index.1 as usize][index.0 as usize]
+        }else {
+            unimplemented!()
+        }
     }
 }
 impl fmt::Display for Matrix {
@@ -151,26 +159,62 @@ impl Board {
     /// * `pos` - 石を置く位置
     /// * `dir` - ひっくり返せる石を探す方向。`DIRECTIONS` の要素のいずれかが渡される
     fn get_flip(&self, piece: Piece, mut pos: Coord, dir: Coord) -> u8 {
-        unimplemented!();
+        let mut count = 0;
+        loop {
+            pos += dir;
+            if self.matrix[pos] == None {
+                count = 0;
+                break
+            }
+            else if self.matrix[pos] == Some(piece) {
+                break
+            }
+            else{
+                count += 1;
+            }
+        }
+        count
     }
 
     /// 指定の色の石を指定の位置に置いたときの `Move` を返す
     ///
     /// 戻り値の `Move` には8方向分の `get_flip` の結果が含まれる
     fn get_move(&self, piece: Piece, pos: Coord) -> Move {
-        unimplemented!();
+        let mut flips = ZERO_FLIP;
+        for i in 0..MATRIX_SIZE {
+            flips[i] = self.get_flip(piece, pos, DIRECTIONS[i]);
+        }
+        Move {
+            pos: pos,
+            flips: flips
+        }
     }
 
     /// 合法な Move のリストを返す
     ///
     /// 盤面の左上から右下まで走査して、合法手を探し出す
     pub fn moves(&self, piece: Piece) -> Moves {
-        unimplemented!();
+        let mut moves = Moves::new();
+        for i in 0..MATRIX_SIZE {
+            for j in 0..MATRIX_SIZE {
+                let pos = Coord(i as i8, j as i8);
+                if self.matrix[pos] == None {
+                    let m = self.get_move(piece, pos);
+                    if m.is_legal() {
+                        moves.push(m);
+                    }
+                }
+            }
+        }
+        moves
     }
 
     /// 指定の色のカウンタへのミュータブルな参照を返す
     fn count_mut(&mut self, piece: Piece) -> &mut u8 {
-        unimplemented!();
+        match piece {
+            Piece::White => &mut self.white,
+            Piece::Black => &mut self.black,
+        }
     }
 
     /// 石を指定の位置から指定の方向へ指定の数だけ指定の色にひっくり返す
@@ -182,12 +226,22 @@ impl Board {
     ///
     /// ひっくり返した分だけ `black`/`white` の数を増減させる必要がある
     fn do_flip(&mut self, piece: Piece, mut pos: Coord, dir: Coord, flip: u8) {
-        unimplemented!();
+        for _ in 0..flip {
+            pos += dir;
+            self.matrix[pos] = Some(piece);
+        }
+        *self.count_mut(piece) += flip;
+        *self.count_mut(piece.opponent()) -= flip;
     }
 
     /// 指定の色で指定の「手」を打つ
     pub fn do_move(&mut self, piece: Piece, mov: &Move) {
-        unimplemented!();
+        self.matrix[mov.pos] = Some(piece);
+        *self.count_mut(piece) += 1;
+
+        for i in 0..MATRIX_SIZE {
+            self.do_flip(piece, mov.pos, DIRECTIONS[i], mov.flips[i]);
+        }
     }
 }
 impl fmt::Display for Board {
